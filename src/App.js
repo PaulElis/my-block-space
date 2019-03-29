@@ -77,7 +77,7 @@ class App extends Component {
       //   followers: [],
       // })
       // await followInfo.save()
-      return console.log({curUserHasAccount, followInfo})
+      return console.log({curUserHasAccount})
     }
     
   }
