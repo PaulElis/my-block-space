@@ -88,7 +88,7 @@ class App extends Component {
 
   render() {
     const {loaded} = this.props.curUserInfo;
-
+    console.log('hello world!')
     return (
       <div className="App">
         {!this.state.isSignedIn ?
