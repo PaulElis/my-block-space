@@ -63,21 +63,16 @@ class App extends Component {
         username,
         image_url: person.avatarUrl(),
         display_name: person.name(),
-        background_img: '',
-        location: '',
+      })
+      const followInfo = await new FollowInfo({
+        username,
       })
       await newUser.save()
-      return console.log({newUser})
+      await followInfo.save()
+      return console.log({newUser, followInfo})
     } else {
-      // const followInfo = await new FollowInfo({
-      //   username: userData.username,
-      //   following_cnt: 0,
-      //   follower_cnt: 0,
-      //   following: [],
-      //   followers: [],
-      // })
-      // await followInfo.save()
-      return console.log({curUserHasAccount})
+      const curUserFollowInfo = await FollowInfo.findOne({ username: userData.username, }, { decrypt: true })
+      return console.log({info: {curUserHasAccount, curUserFollowInfo}})
     }
     
   }

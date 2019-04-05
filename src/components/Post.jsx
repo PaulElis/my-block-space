@@ -1,9 +1,10 @@
 import React, {Component} from 'react';
-import { Row, Col, Dropdown } from 'react-bootstrap';
+import { Row, Col, Dropdown, Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import Options from '../assets/options.svg';
 import PostEngagement from './PostEngagement';
 import { loadUserData, putFile, getFile } from 'blockstack';
+import Tag from '../model/tag';
 const avatarFallbackImage = 'https://s3.amazonaws.com/onename/avatar-placeholder.png';
 
 export default class Post extends Component {
@@ -15,6 +16,7 @@ export default class Post extends Component {
             toggleOptions: false,
             deleted: false,
             isLocal: false,
+            tags: []
         }
     }
 
@@ -47,22 +49,32 @@ export default class Post extends Component {
         this.setState({deleted: !this.state.deleted});
     }
     deletePost = async () => {
-        const { status } = this.props;
-        const optionsSend = { encrypt: false }
-        const optionsReceive = { decrypt: false }
-        await putFile(`post${status.created_at}.json`, '', optionsSend);
-        let file = await getFile('postids.json', optionsReceive)
-        try {
-            file = JSON.parse(file);
-            file = file.filter(postId => postId !== status.created_at);
-            await putFile('postids.json', JSON.stringify(file), optionsSend)
-            this.handleDelete();
-        } catch (e) {
-            console.log(`We had a problem deleting the post. message: ${e}`)
-        }
+        //TODO: fix delete to work with radiks
+        // const { status } = this.props;
+        // const optionsSend = { encrypt: false }
+        // const optionsReceive = { decrypt: false }
+        // await putFile(`post${status.created_at}.json`, '', optionsSend);
+        // let file = await getFile('postids.json', optionsReceive)
+        // try {
+        //     file = JSON.parse(file);
+        //     file = file.filter(postId => postId !== status.created_at);
+        //     await putFile('postids.json', JSON.stringify(file), optionsSend)
+        //     this.handleDelete();
+        // } catch (e) {
+        //     console.log(`We had a problem deleting the post. message: ${e}`)
+        // }
     }
+
+    loadTags = async () => {
+        const tags = await Tag.fetchList({ post_id: this.props.radiksId }, { decrypt: true });
+        if (tags.length > 0) {
+            return this.setState({ tags })
+        } 
+    }
+
     componentDidMount() {
         this.isLocal();
+        this.loadTags()
     }
 
     render() {
@@ -101,8 +113,12 @@ export default class Post extends Component {
                 {!this.state.fullText && (status.text.length > 500 ? (<pre>{status.text.substring(0, 500)}...<br/><strong className='show-more' onClick={this.showFulltext}>show more</strong></pre>) : <pre>{status.text}</pre>)}
 
                 {this.state.fullText && <pre>{status.text} <br /><strong className='show-more' onClick={this.showFulltext}>show less</strong></pre>}
-                
-                <PostEngagement status={status} deleted={this.handleDelete}/>
+                <div>
+                    {this.state.tags.length > 0 && this.state.tags.map(tag => {
+                        return <Badge pill variant="secondary" key={tag.attrs.tag}>{tag.attrs.tag}</Badge>
+                    })}
+                </div>
+                <PostEngagement status={status} deleted={this.handleDelete} radiksId={this.props.radiksId}/>
             </div>}</div>
         )
     }

@@ -16,6 +16,10 @@ import InfiniteScroll from './InfiniteScroll';
 import { bindActionCreators } from 'redux';
 import { connect } from 'react-redux';
 import { currentUserInformation } from '../actions';
+import FollowInfo from '../model/followInfo';
+import VriendUser from '../model/vriendUser';
+import Post from '../model/post';
+import _ from 'lodash';
 
 class Profile extends Component {
     constructor(props) {
@@ -46,31 +50,35 @@ class Profile extends Component {
     async fetchData() {
         const username = this.props.match.params.username;
         this.setState({ isLoading: true, username: username, postIds: [] })
-        let profile = await lookupProfile(username)
         try {
+            let profile = await lookupProfile(username)
             this.setState({person: new Person(profile)})
         } catch {
-            this.setState({person: false})
+            this.setState({person: false, isLoading: false})
         }
         let settings = await this.fetchSettings();
-        const options = { username: username, decrypt: false }
-        let postIds = [];
+
+        // const options = { username: username, decrypt: false }
+        let postTimes = [];
         let postIdAndName = {}
-        let resp = await getFile('postids.json', options);
+        // let resp = await getFile('postids.json', options);
         try {
-            postIds = JSON.parse(resp || '[]')
-            if (postIds.length > 0) {
-                for (let i = 0; i < postIds.length; i++) {
-                    postIdAndName[`${postIds[i]}`] = username;
+            // postIds = JSON.parse(resp || '[]')
+            let postsMadeByUser = await Post.fetchList({ username: username, }, { decrypt: true })
+            console.log({postsMadeByUser})
+            if (postsMadeByUser.length > 0) {
+                for (let i = 0; i < postsMadeByUser.length; i++) {
+                    postIdAndName[`${postsMadeByUser[i].attrs.createdAt}`] = [username, postsMadeByUser[i]._id];
+                    postTimes.push(postsMadeByUser[i].attrs.createdAt)
                 }
             }
         } catch {
-            console.log('oepsie, could not fetch data')
+            // console.log('oepsie, could not fetch data')
         }
         this.props.curUserInfo.friends.includes(username) ? this.setState({ following: true }) : this.setState({ following: false });
         return this.setState({
                     isLoading: false,
-                    postIds: postIds,
+                    postIds: postTimes.reverse(),
                     settings: settings,
                     postIdAndName: postIdAndName
                 });
@@ -89,6 +97,22 @@ class Profile extends Component {
         friends.push(this.state.username)
         const options = { encrypt: false }
         await putFile('friends.json', JSON.stringify(friends), options)
+
+        //cur user data radiks
+        const myFollowInfoArray = await FollowInfo.fetchList({ username: this.props.curUserInfo.username,}, {decrypt: true})
+        const myFollowInfo = myFollowInfoArray[0]
+        myFollowInfo.attrs.following.push(this.state.username)
+        myFollowInfo.attrs.following_cnt++
+
+        //user of profile data radiks
+        const otherFollowInfoArray = await FollowInfo.fetchList({ username: this.state.username, }, { decrypt: true })
+        const otherFollowInfo = otherFollowInfoArray[0]
+        otherFollowInfo.attrs.followers.push(this.props.curUserInfo.username)
+        otherFollowInfo.attrs.follower_cnt++
+
+        console.log({myFollowInfo, otherFollowInfo})
+        await myFollowInfo.save();
+        await otherFollowInfo.save();
         this.setState({following: true})
         this.props.currentUserInformation();
     }
@@ -99,11 +123,25 @@ class Profile extends Component {
         friends = friends.filter(username => username !== user)
         const options = { encrypt: false }
         await putFile('friends.json', JSON.stringify(friends), options)
+        //curuser data radiks
+        const myFollowInfoArray = await FollowInfo.fetchList({ username: this.props.curUserInfo.username, }, { decrypt: true })
+        const myFollowInfo = myFollowInfoArray[0]
+        myFollowInfo.attrs.following = myFollowInfo.attrs.following.filter(username => username !== user)
+        myFollowInfo.attrs.following_cnt--
+        //user of profile data radiks
+        const otherFollowInfoArray = await FollowInfo.fetchList({ username: user, }, { decrypt: true })
+        const otherFollowInfo = otherFollowInfoArray[0]
+        otherFollowInfo.attrs.followers = otherFollowInfo.attrs.followers.filter(username => username !== this.props.curUserInfo.username)
+        otherFollowInfo.attrs.follower_cnt--
+
+        console.log({ myFollowInfo, otherFollowInfo })
+        await otherFollowInfo.save();
+        await myFollowInfo.save();
         this.setState({ following: false })
         this.props.currentUserInformation();
     }
 
-    componentDidMount() {
+    async componentDidMount() {
         this.isLocal();
         this.fetchData();
     }
@@ -184,7 +222,7 @@ class Profile extends Component {
                                 <Col xs={1} md={1}></Col>
                             </Row>
                         </div>
-                    </div> : <NoResult username={username}/>}
+                    </div> : <div>{!this.state.isLoading && <NoResult username={username}/>}</div>}
             </div>
         );
     }

@@ -13,8 +13,9 @@ class VriendUser extends User {
         location: { type: String, decrypted: true },
     }
 
-    static findByUsername(username, options = { decrypt: true }) {
-        return this.findOne({ username, options });
+    static defaults = {
+        background_img: '',
+        location: ''
     }
 
 }
